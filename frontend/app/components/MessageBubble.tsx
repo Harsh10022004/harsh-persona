@@ -8,12 +8,28 @@ export interface Source {
   section?: string;
 }
 
+export interface SlotOption {
+  isoTime: string;
+  label: string; // e.g. "11:00 AM"
+}
+
+export interface DayGroup {
+  dateKey: string;   // "2026-04-15"
+  dayLabel: string;  // "Tue, Apr 15"
+  range: string;     // "11:00 AM – 2:15 PM"
+  slots: SlotOption[];
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
   isLoading?: boolean;
+  dayGroups?: DayGroup[];
+  onDaySelect?: (group: DayGroup) => void;
+  slotOptions?: SlotOption[];
+  onSlotSelect?: (isoTime: string) => void;
 }
 
 const SOURCE_COLOURS: Record<string, string> = {
@@ -83,6 +99,37 @@ export default function MessageBubble({ message }: { message: Message }) {
           <div className="flex flex-wrap gap-1 pl-1">
             {message.sources.map((s, i) => (
               <SourceBadge key={i} source={s} />
+            ))}
+          </div>
+        )}
+
+        {/* Day group chips (first level) */}
+        {!isUser && message.dayGroups && message.dayGroups.length > 0 && message.onDaySelect && (
+          <div className="flex flex-col gap-2 pl-1 mt-1">
+            {message.dayGroups.map((group) => (
+              <button
+                key={group.dateKey}
+                onClick={() => message.onDaySelect!(group)}
+                className="text-left text-sm px-4 py-2 rounded-xl bg-slate-700 hover:bg-brand-700 border border-slate-600 hover:border-brand-500 text-white transition-colors"
+              >
+                <span className="font-medium">{group.dayLabel}</span>
+                <span className="text-slate-400 ml-2 text-xs">· {group.range}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Individual time slot chips (second level) */}
+        {!isUser && message.slotOptions && message.slotOptions.length > 0 && message.onSlotSelect && (
+          <div className="flex flex-wrap gap-2 pl-1 mt-1">
+            {message.slotOptions.map((slot) => (
+              <button
+                key={slot.isoTime}
+                onClick={() => message.onSlotSelect!(slot.isoTime)}
+                className="text-xs px-3 py-1.5 rounded-full bg-brand-700 hover:bg-brand-600 border border-brand-500 text-white transition-colors"
+              >
+                {slot.label}
+              </button>
             ))}
           </div>
         )}

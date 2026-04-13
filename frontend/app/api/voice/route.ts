@@ -2,87 +2,51 @@
  * Vapi.ai server-side webhook.
  *
  * Handles:
- *   assistant-request  → return assistant config
- *   function-call      → check_availability | book_meeting
- *   end-of-call-report → log call summary
+ *   tool-calls         → check_availability | book_meeting  (current Vapi format)
+ *   function-call      → same tools (legacy Vapi format — kept for compatibility)
+ *   end-of-call-report → log summary
+ *   hang               → call ended unexpectedly
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAvailability, createBooking, formatSlotsForVoice } from "@/lib/calendar";
 
-const USER_NAME = (process.env.USER_NAME ?? "Harsh_Vardhan_Singhania").replace(/_/g, " ");
-const BACKEND_URL = process.env.BACKEND_URL ?? "https://your-vercel-app.vercel.app";
+// ── Tool handlers ─────────────────────────────────────────────────────────────
 
-const FUNCTIONS = [
-  {
-    name: "check_availability",
-    description:
-      "Check Harsh's calendar and return available meeting slots. " +
-      "Call this when the caller asks about scheduling, availability, or wants to book a meeting.",
-    parameters: {
-      type: "object",
-      properties: {
-        timezone: {
-          type: "string",
-          description: "Caller's IANA timezone, e.g. 'America/New_York'",
-        },
-      },
-    },
-  },
-  {
-    name: "book_meeting",
-    description: "Create a confirmed calendar booking with the caller.",
-    parameters: {
-      type: "object",
-      properties: {
-        name: { type: "string", description: "Caller's full name" },
-        email: { type: "string", description: "Caller's email address" },
-        start_time: {
-          type: "string",
-          description: "ISO 8601 start time, e.g. '2025-05-10T14:00:00Z'",
-        },
-        timezone: { type: "string", description: "Caller's IANA timezone" },
-      },
-      required: ["name", "email", "start_time"],
-    },
-  },
-];
-
-function getAssistantConfig() {
-  return {
-    assistant: {
-      name: `${USER_NAME} AI Representative`,
-      firstMessage:
-        `Hello! I'm the AI representative of ${USER_NAME}, a software engineer. ` +
-        "I can tell you about his background, projects, and skills — " +
-        "and I can book an interview slot directly. How can I help you today?",
-      model: {
-        provider: "custom-llm",
-        url: `${BACKEND_URL}/api/vapi/llm`,
-        model: "harsh-persona-rag",
-      },
-      voice: {
-        provider: "11labs",
-        voiceId: "adam",
-        stability: 0.5,
-        similarityBoost: 0.75,
-      },
-      transcriber: {
-        provider: "deepgram",
-        model: "nova-2",
-        language: "en-US",
-      },
-      functions: FUNCTIONS,
-      silenceTimeoutSeconds: 30,
-      maxDurationSeconds: 600,
-      serverUrl: `${BACKEND_URL}/api/voice`,
-      serverMessages: ["function-call", "end-of-call-report"],
-      endCallMessage:
-        "It was great speaking with you! " +
-        "You'll receive a calendar confirmation if we booked a slot. Have a great day!",
-    },
-  };
+async function handleCheckAvailability(params: Record<string, string>): Promise<string> {
+  const tz = params.timezone ?? "UTC";
+  const avail = await getAvailability(tz);
+  return formatSlotsForVoice(avail);
 }
+
+async function handleBookMeeting(params: Record<string, string>): Promise<string> {
+  const { name, email, start_time, timezone = "UTC" } = params;
+  if (!name || !email || !start_time) {
+    return "I need your name, email, and a chosen time slot to complete the booking. Could you provide those?";
+  }
+  const booking = await createBooking(name, email, start_time, timezone);
+  return (
+    `All set! I've booked your interview. ` +
+    `A calendar confirmation is on its way to ${email}. ` +
+    `Booking reference: ${booking.uid ?? "confirmed"}.`
+  );
+}
+
+async function dispatchTool(name: string, params: Record<string, string>): Promise<string> {
+  try {
+    if (name === "check_availability") return await handleCheckAvailability(params);
+    if (name === "book_meeting") return await handleBookMeeting(params);
+    return "I don't know how to handle that request.";
+  } catch (err) {
+    console.error(`[voice] tool error — ${name}:`, err);
+    if (name === "check_availability") {
+      return "I'm having trouble reading the calendar right now. Please try again in a moment.";
+    }
+    return "I ran into an issue completing the booking. Please use the chat interface to schedule.";
+  }
+}
+
+// ── Webhook handler ───────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
@@ -95,56 +59,44 @@ export async function POST(req: NextRequest) {
   const message = (body.message ?? {}) as Record<string, unknown>;
   const msgType = message.type as string;
 
-  if (msgType === "assistant-request") {
-    return NextResponse.json(getAssistantConfig());
+  // ── Current Vapi format: tool-calls ───────────────────────────────────────
+  if (msgType === "tool-calls") {
+    const toolCallList = (message.toolCallList ?? message.toolCalls ?? []) as Array<{
+      id: string;
+      function?: { name: string; arguments: string | Record<string, string> };
+    }>;
+
+    const results = await Promise.all(
+      toolCallList.map(async (tc) => {
+        const fnName = tc.function?.name ?? "";
+        let params: Record<string, string> = {};
+        try {
+          const raw = tc.function?.arguments ?? {};
+          params = typeof raw === "string" ? JSON.parse(raw) : raw;
+        } catch {}
+        const result = await dispatchTool(fnName, params);
+        return { toolCallId: tc.id, result };
+      })
+    );
+
+    return NextResponse.json({ results });
   }
 
+  // ── Legacy Vapi format: function-call ─────────────────────────────────────
   if (msgType === "function-call") {
-    const fnCall = (message.functionCall ?? {}) as Record<string, unknown>;
-    const fnName = fnCall.name as string;
-    const params = (fnCall.parameters ?? {}) as Record<string, string>;
-
-    let result: string;
-    if (fnName === "check_availability") {
-      try {
-        const tz = params.timezone ?? "UTC";
-        const avail = await getAvailability(tz);
-        result = formatSlotsForVoice(avail);
-      } catch (err) {
-        console.error("check_availability error:", err);
-        result =
-          "I'm having trouble reading the calendar right now. " +
-          "Please try again in a moment or visit the chat interface.";
-      }
-    } else if (fnName === "book_meeting") {
-      try {
-        const booking = await createBooking(
-          params.name,
-          params.email,
-          params.start_time,
-          params.timezone ?? "UTC"
-        );
-        result =
-          `All set! I've booked the meeting. ` +
-          `A confirmation email is on its way to ${params.email}. ` +
-          `Reference: ${booking.uid ?? "confirmed"}.`;
-      } catch (err) {
-        console.error("book_meeting error:", err);
-        result =
-          "I ran into an issue creating the booking. " +
-          "Please use the chat interface to complete the scheduling.";
-      }
-    } else {
-      result = "I don't know how to handle that request.";
-    }
-
+    const fnCall = (message.functionCall ?? {}) as {
+      name?: string;
+      parameters?: Record<string, string>;
+    };
+    const result = await dispatchTool(fnCall.name ?? "", fnCall.parameters ?? {});
     return NextResponse.json({ result });
   }
 
-  if (msgType === "end-of-call-report") {
-    console.log(
-      `[Vapi] Call ended — reason=${message.endedReason}, duration=${message.durationSeconds}s`
-    );
+  // ── End of call ───────────────────────────────────────────────────────────
+  if (msgType === "end-of-call-report" || msgType === "hang") {
+    const reason = message.endedReason ?? message.reason ?? "unknown";
+    const duration = message.durationSeconds ?? 0;
+    console.log(`[Vapi] Call ended — reason=${reason}, duration=${duration}s`);
     return NextResponse.json({ status: "received" });
   }
 
