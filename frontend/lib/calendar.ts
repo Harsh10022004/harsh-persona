@@ -91,7 +91,7 @@ export async function getAvailability(
   const data = await res.json();
   // v2 returns {"data": {"2026-04-14": [{"start": "..."}]}}
   // Normalize to {"slots": {"2026-04-14": [{"time": "..."}]}}
-  const rawSlots: Record<string, Array<{ start: string }>> = data.data ?? {};
+  const rawSlots: Record<string, Array<{ start: string; time?: string }>> = data.data ?? {};
   const normalized: Record<string, Array<{ time: string }>> = {};
   for (const [date, times] of Object.entries(rawSlots)) {
     normalized[date] = times.map((t) => ({ time: t.start ?? t.time ?? "" }));
