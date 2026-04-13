@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ragQuery } from "@/lib/rag";
 
+// Allow up to 60s — needed for HuggingFace cold starts
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();

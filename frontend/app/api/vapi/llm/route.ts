@@ -14,6 +14,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ragQuery, trimForVoice, ChatMessage } from "@/lib/rag";
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try {

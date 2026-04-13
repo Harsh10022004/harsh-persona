@@ -11,18 +11,25 @@ export async function embedText(text: string): Promise<number[]> {
   const token = process.env.HF_TOKEN;
   if (!token) throw new Error("HF_TOKEN not set in .env");
 
-  const res = await fetch(HF_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify({ inputs: text }),
-  });
+  // Retry up to 3 times — HF returns 503 while the model is loading (cold start)
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch(HF_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ inputs: text }),
+    });
+    if (res.status !== 503) break;
+    // Model is loading — wait and retry
+    await new Promise((r) => setTimeout(r, 8000));
+  }
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`HuggingFace embedding error ${res.status}: ${err}`);
+  if (!res || !res.ok) {
+    const err = await res?.text() ?? "no response";
+    throw new Error(`HuggingFace embedding error ${res?.status}: ${err}`);
   }
 
   const data = await res.json();

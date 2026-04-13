@@ -11,6 +11,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAvailability, createBooking, formatSlotsForVoice } from "@/lib/calendar";
 
+export const maxDuration = 60;
+
 // ── Tool handlers ─────────────────────────────────────────────────────────────
 
 async function handleCheckAvailability(params: Record<string, string>): Promise<string> {
