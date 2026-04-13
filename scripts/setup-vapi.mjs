@@ -61,7 +61,7 @@ const ASSISTANT_CONFIG = {
     provider: "custom-llm",
     url: `${BACKEND_URL}/api/vapi/llm`,
     model: "harsh-persona-rag",
-    // Vapi will POST each turn to our RAG endpoint
+    authorizationHeader: `Bearer ${VAPI_KEY}`,
   },
 
   voice: {
