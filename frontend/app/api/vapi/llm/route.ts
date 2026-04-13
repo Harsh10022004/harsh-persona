@@ -1,14 +1,7 @@
 /**
  * Custom LLM endpoint — OpenAI chat-completion compatible.
- *
- * Vapi calls this on every conversational turn instead of hitting
- * OpenAI directly, giving us full RAG control.
- *
- * Vapi sends:
- *   { messages: [{role, content}...], call: {...}, model: "..." }
- *
- * We respond with the OpenAI chat completion shape.
- * For tool calls, Vapi intercepts and calls /api/voice with the result.
+ * Supports both streaming (SSE) and non-streaming responses.
+ * Vapi sends stream:true by default — we must handle it.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,21 +18,22 @@ export async function POST(req: NextRequest) {
   }
 
   const messages = (body.messages ?? []) as Array<{ role: string; content: string }>;
+  const stream = body.stream === true;
 
   // Find the last user message
   const userMessages = messages.filter((m) => m.role === "user");
   if (!userMessages.length) {
-    return NextResponse.json(
-      buildResponse("Hello! I'm Harsh's AI representative. What would you like to know?")
-    );
+    const content = "Hello! I'm Harsh's AI representative. What would you like to know?";
+    return stream ? streamResponse(content) : NextResponse.json(buildResponse(content));
   }
 
   const question = userMessages[userMessages.length - 1].content?.trim() ?? "";
   if (!question) {
-    return NextResponse.json(buildResponse("Could you please repeat that?"));
+    const content = "Could you please repeat that?";
+    return stream ? streamResponse(content) : NextResponse.json(buildResponse(content));
   }
 
-  // Build conversation history (exclude system messages — RAG builds its own)
+  // Build conversation history
   const history: ChatMessage[] = [];
   for (let i = 0; i < messages.length - 1; i++) {
     const m = messages[i];
@@ -50,18 +44,50 @@ export async function POST(req: NextRequest) {
 
   try {
     const { answer } = await ragQuery(question, history.slice(-8));
-    // Trim to 2-3 sentences for voice — keep it concise
     const voiceAnswer = trimForVoice(answer, 3);
-    return NextResponse.json(buildResponse(voiceAnswer));
+    return stream ? streamResponse(voiceAnswer) : NextResponse.json(buildResponse(voiceAnswer));
   } catch (err) {
     console.error("[vapi/llm] ragQuery error:", err);
-    return NextResponse.json(
-      buildResponse(
-        "I'm having a small technical issue. Could you give me a moment and try again?"
-      )
-    );
+    const content = "I'm having a small technical issue. Could you give me a moment and try again?";
+    return stream ? streamResponse(content) : NextResponse.json(buildResponse(content));
   }
 }
+
+// ── SSE streaming response (what Vapi expects) ────────────────────────────────
+
+function streamResponse(content: string): Response {
+  const id = `chatcmpl-${crypto.randomUUID().slice(0, 8)}`;
+  const created = Math.floor(Date.now() / 1000);
+
+  // Send content as a single SSE chunk, then [DONE]
+  const chunk = {
+    id,
+    object: "chat.completion.chunk",
+    created,
+    model: "harsh-persona-rag",
+    choices: [{ index: 0, delta: { role: "assistant", content }, finish_reason: null }],
+  };
+
+  const done = {
+    id,
+    object: "chat.completion.chunk",
+    created,
+    model: "harsh-persona-rag",
+    choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+  };
+
+  const body = `data: ${JSON.stringify(chunk)}\n\ndata: ${JSON.stringify(done)}\n\ndata: [DONE]\n\n`;
+
+  return new Response(body, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}
+
+// ── Non-streaming response ────────────────────────────────────────────────────
 
 function buildResponse(content: string) {
   return {

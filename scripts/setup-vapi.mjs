@@ -50,7 +50,7 @@ const USER_NAME = (env.USER_NAME ?? "Harsh_Vardhan_Singhania").replace(/_/g, " "
 // ── Assistant config ──────────────────────────────────────────────────────────
 
 const ASSISTANT_CONFIG = {
-  name: `${USER_NAME} - AI Representative`,
+  name: "Harsh AI Rep",
   firstMessage:
     `Hi there! I'm the AI representative of ${USER_NAME}, a software engineer. ` +
     "I can answer questions about his background, skills, and projects — " +
@@ -80,57 +80,8 @@ const ASSISTANT_CONFIG = {
     smartFormat: true,
   },
 
-  // Server-side tool calls — Vapi calls our webhook when the LLM invokes a tool
   serverUrl: `${BACKEND_URL}/api/voice`,
-  serverMessages: ["tool-calls", "end-of-call-report", "hang"],
-
-  // Tools the LLM can invoke
-  tools: [
-    {
-      type: "function",
-      function: {
-        name: "check_availability",
-        description:
-          "Check Harsh's real calendar and return available interview slots. " +
-          "Call this when the caller asks about scheduling, availability, or wants to book.",
-        parameters: {
-          type: "object",
-          properties: {
-            timezone: {
-              type: "string",
-              description: "Caller's IANA timezone, e.g. 'America/New_York'. Default 'UTC'.",
-            },
-          },
-        },
-      },
-      async: false,
-    },
-    {
-      type: "function",
-      function: {
-        name: "book_meeting",
-        description:
-          "Create a confirmed calendar booking. Only call after you have the caller's name, email, and chosen time slot.",
-        parameters: {
-          type: "object",
-          properties: {
-            name: { type: "string", description: "Caller's full name" },
-            email: { type: "string", description: "Caller's email address" },
-            start_time: {
-              type: "string",
-              description: "ISO 8601 datetime, e.g. '2026-04-20T14:00:00Z'",
-            },
-            timezone: {
-              type: "string",
-              description: "Caller's IANA timezone",
-            },
-          },
-          required: ["name", "email", "start_time"],
-        },
-      },
-      async: false,
-    },
-  ],
+  serverMessages: ["end-of-call-report", "hang"],
 
   // Behaviour
   silenceTimeoutSeconds: 30,
