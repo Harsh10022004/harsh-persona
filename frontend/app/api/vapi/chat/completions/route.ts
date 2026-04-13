@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
-export const runtime = "edge";
+export const maxDuration = 60;
 
 const FALLBACK_SYSTEM_PROMPT = `You are the AI voice representative of Harsh Vardhan Singhania, a software engineer and Scaler Academy student. Speak in first person. Keep answers to 2-3 sentences max — this is a voice call.
 
