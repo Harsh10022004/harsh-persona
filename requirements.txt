@@ -1,0 +1,53 @@
+# ============================================================
+# Harsh Persona Orchestrator — Python Dependencies
+# ============================================================
+
+# ── FastAPI Backend ──────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+python-multipart>=0.0.9
+httpx>=0.27.0
+
+# ── LangChain Core ──────────────────────────────────────────
+langchain>=0.1.16
+langchain-core>=0.1.46
+langchain-community>=0.0.38
+langchain-text-splitters>=0.0.1
+
+# ── LLM Providers (Model Factory — swap via .env) ────────────
+langchain-groq>=0.1.6
+langchain-google-genai>=1.0.3
+google-generativeai>=0.5.0
+langchain-openai>=0.1.3
+openai>=1.14.0
+
+# ── Local Embeddings (used when LLM_PROVIDER=GROQ) ───────────
+# Groq has no embeddings API → sentence-transformers runs locally on CPU
+# all-mpnet-base-v2: ~420 MB, downloads once on first run, then cached.
+# Works on localhost, Railway, Render, EC2, GCP — any server with Python.
+sentence-transformers>=2.7.0
+
+# ── Vector Store ─────────────────────────────────────────────
+langchain-pinecone>=0.1.1
+pinecone-client>=3.2.2
+
+# ── Code Parsing (LangChain LanguageParser) ──────────────────
+# tree-sitter-languages only has wheels for Python <3.13.
+# On Python 3.13+ the ingestion pipeline automatically falls back to
+# whole-file plain-text loading (class/function chunking is skipped gracefully).
+# Uncomment these lines ONLY if you are using Python 3.11 or 3.12:
+# tree-sitter>=0.21.3
+# tree-sitter-languages>=1.10.2
+
+# ── PDF Processing ───────────────────────────────────────────
+PyMuPDF>=1.23.26
+pypdf>=4.1.0            # fallback if PyMuPDF unavailable
+
+# ── GitHub Integration ──────────────────────────────────────
+PyGithub>=2.3.0
+gitpython>=3.1.43
+
+# ── Evals ────────────────────────────────────────────────────
+numpy>=1.26.4

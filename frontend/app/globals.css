@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Smooth scrollbar for webkit */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+/* Markdown-style content within AI bubbles */
+.prose-chat p { margin-bottom: 0.5rem; }
+.prose-chat ul { list-style: disc inside; margin-left: 0.75rem; }
+.prose-chat code { background: rgba(255,255,255,0.12); padding: 1px 4px; border-radius: 3px; font-size: 0.85em; }

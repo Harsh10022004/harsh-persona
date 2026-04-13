@@ -1,0 +1,81 @@
+flowchart TB
+    subgraph Client["Client Layer"]
+        Browser["Browser\n(Next.js Chat UI)"]
+        Phone["Phone Call\n(Vapi.ai)"]
+    end
+
+    subgraph Frontend["Next.js Frontend (Port 3000)"]
+        Page["app/page.tsx"]
+        ChatComp["ChatInterface.tsx"]
+        BookComp["BookingModal.tsx"]
+        ApiChat["API Route\n/api/chat"]
+        ApiBook["API Route\n/api/book"]
+        ApiAvail["API Route\n/api/availability"]
+    end
+
+    subgraph Backend["FastAPI Backend (Port 8000)"]
+        direction TB
+        Main["main.py\n(FastAPI + CORS + Lifespan warm-up)"]
+
+        subgraph Services["Services (Business Logic)"]
+            RAG["RAGService\nrag_service.py"]
+            Voice["VoiceService\nvoice_service.py"]
+            Cal["CalendarService\ncalendar_service.py"]
+        end
+
+        subgraph Repos["Repositories (Data Access)"]
+            VRepo["VectorRepository\nvector_repository.py"]
+        end
+
+        Factory["LLM Factory\nllm_factory.py\n(GEMINI ↔ OPENAI via .env)"]
+    end
+
+    subgraph Ingestion["Ingestion Pipeline (run once)"]
+        Cloner["github_cloner.py\n(git clone --depth 1)"]
+        Parser["code_parser.py\n(LanguageParser: class/fn chunks)"]
+        Analyzer["analyzer.py\n(LLM repo summaries)"]
+        Processor["processor.py\n(PDF resume + profiles.json)"]
+        VStore["vector_store.py\n(Pinecone upsert)"]
+        RunScript["run_ingestion.py\n(orchestrator)"]
+    end
+
+    subgraph External["External Services"]
+        Pinecone[("Pinecone\nVector DB")]
+        GeminiAPI["Gemini 1.5 Flash\n(LLM + Embeddings)"]
+        OpenAIAPI["OpenAI GPT-4o\n(optional swap)"]
+        CalCom["Cal.com\n(Calendar & Booking)"]
+        VapiAI["Vapi.ai\n(Voice Orchestration)"]
+        Deepgram["Deepgram Nova-2\n(STT)"]
+        ElevenLabs["ElevenLabs\n(TTS)"]
+        GitHub["GitHub API\n(Repo metadata)"]
+    end
+
+    subgraph DataSources["Data Sources"]
+        Resume["HarshResume.pdf"]
+        ProfilesJSON["profiles.json"]
+        GHRepos["15 GitHub Repos"]
+    end
+
+    Browser --> Page --> ChatComp
+    ChatComp --> ApiChat & ApiAvail & ApiBook
+    Phone --> VapiAI
+
+    ApiChat -->|"POST /chat"| Main
+    ApiBook -->|"POST /book"| Main
+    ApiAvail -->|"GET /availability"| Main
+    VapiAI -->|"POST /voice"| Main
+    VapiAI -->|"POST /vapi/llm"| Main
+
+    Main --> RAG & Voice & Cal
+    RAG --> VRepo & Factory
+    Voice --> RAG & Cal
+    VRepo --> Pinecone
+    Factory --> GeminiAPI
+    Factory -.->|"LLM_PROVIDER=OPENAI"| OpenAIAPI
+    Cal --> CalCom
+    VapiAI --> Deepgram & ElevenLabs
+
+    DataSources --> RunScript
+    GitHub --> Cloner --> Parser --> Analyzer
+    Resume & ProfilesJSON --> Processor
+    Analyzer & Processor --> VStore --> Pinecone
