@@ -73,6 +73,7 @@ const ASSISTANT_CONFIG = {
     model: "nova-2",
     language: "en-US",
     smartFormat: true,
+    endpointing: 600,   // ms of silence before treating utterance as done (default ~300ms, higher = less early cutoff)
   },
 
   serverUrl: `${BACKEND_URL}/api/voice`,
