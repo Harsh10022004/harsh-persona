@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import MessageBubble, { Message, SlotOption, DayGroup } from "./MessageBubble";
 import BookingModal from "./BookingModal";
+import VoiceButton from "./VoiceButton";
 
 const SUGGESTED_QUESTIONS = [
   "Why is Harsh the right fit for this role?",
@@ -128,6 +129,11 @@ export default function ChatInterface() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Pipe voice transcripts into chat messages
+  const handleVoiceTranscript = useCallback((role: "user" | "assistant", text: string) => {
+    setMessages((prev) => [...prev, { id: uuidv4(), role, content: `🎙️ ${text}` }]);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -376,10 +382,11 @@ export default function ChatInterface() {
               <p className="text-xs text-slate-400">AI Representative · RAG-grounded</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <span className="hidden sm:inline text-xs text-slate-500">
               Powered by Groq + Pinecone
             </span>
+            <VoiceButton onTranscript={handleVoiceTranscript} />
             <button
               onClick={() => setShowBooking(true)}
               className="px-4 py-1.5 text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-colors"
