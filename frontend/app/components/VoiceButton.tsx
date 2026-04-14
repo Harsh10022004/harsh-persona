@@ -110,7 +110,7 @@ export default function VoiceButton({ onTranscript, compact = false }: VoiceButt
 
   // Full header button — shows phone number + dial feel
   return (
-    <div className="flex flex-col items-center gap-1">
+    <>
       <button
         onClick={handleToggle}
         disabled={isConnecting}
@@ -152,10 +152,7 @@ export default function VoiceButton({ onTranscript, compact = false }: VoiceButt
         </span>
       </button>
 
-      {!isActive && !isConnecting && (
-        <p className="text-[10px] text-slate-500">click to call in browser</p>
-      )}
       {error && <p className="text-xs text-red-400 max-w-[200px] text-center">{error}</p>}
-    </div>
+    </>
   );
 }
