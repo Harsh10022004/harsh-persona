@@ -59,17 +59,13 @@ const ASSISTANT_CONFIG = {
 
   model: {
     provider: "custom-llm",
-    url: `${BACKEND_URL}/api/vapi/llm`,
+    url: `${BACKEND_URL}/api/vapi`,
     model: "harsh-persona-rag",
   },
 
   voice: {
-    provider: "11labs",
-    voiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel — natural, professional
-    stability: 0.5,
-    similarityBoost: 0.75,
-    style: 0.0,
-    useSpeakerBoost: true,
+    provider: "vapi",
+    voiceId: "Elliot",
   },
 
   transcriber: {

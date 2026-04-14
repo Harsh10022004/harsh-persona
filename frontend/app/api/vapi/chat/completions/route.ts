@@ -1,7 +1,6 @@
 /**
  * Custom LLM endpoint for Vapi voice agent.
- * Uses Groq directly — responds in ~1s, no cold start issues.
- * RAG is used in chat; voice uses a comprehensive hardcoded persona.
+ * Uses Groq with streaming — required for Vapi voice to work correctly.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -45,6 +44,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const messages = (body.messages ?? []) as Array<{ role: string; content: string }>;
+    const stream = body.stream === true;
 
     const groqMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { role: "system", content: SYSTEM_PROMPT },
@@ -57,6 +57,42 @@ export async function POST(req: NextRequest) {
     }
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+    if (stream) {
+      // Streaming response for Vapi voice
+      const completion = await groq.chat.completions.create({
+        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+        messages: groqMessages,
+        temperature: 0.3,
+        max_tokens: 150,
+        stream: true,
+      });
+
+      const encoder = new TextEncoder();
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of completion) {
+              const data = JSON.stringify(chunk);
+              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            }
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          } finally {
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(readable, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // Non-streaming fallback
     const completion = await groq.chat.completions.create({
       model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
       messages: groqMessages,
