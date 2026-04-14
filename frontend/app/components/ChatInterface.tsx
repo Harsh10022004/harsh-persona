@@ -24,6 +24,18 @@ const BOOKING_KEYWORDS = [
   "can i book", "can we book",
 ];
 
+const CALL_KEYWORDS = [
+  "call you", "call harsh", "speak to harsh", "speak with harsh",
+  "talk to harsh", "talk with harsh", "contact harsh", "contact you",
+  "phone number", "reach harsh", "reach you", "get in touch",
+  "how to contact", "how can i reach", "dial", "voice call", "phone call",
+];
+
+function isCallIntent(text: string): boolean {
+  const lower = text.toLowerCase();
+  return CALL_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 type BookingStep = "idle" | "showing_slots" | "awaiting_name" | "awaiting_email" | "booking";
 
 interface BookingContext {
@@ -301,6 +313,19 @@ export default function ChatInterface() {
         setMessages((prev) => [...prev, userMsg]);
         setBookingCtx((c) => ({ ...c, step: "booking" }));
         await doBooking(bookingCtx.guestName, trimmed, bookingCtx.selectedSlot);
+        return;
+      }
+
+      // ── Call/contact intent detection ──
+      if (bookingCtx.step === "idle" && isCallIntent(trimmed)) {
+        const userMsg: Message = { id: uuidv4(), role: "user", content: trimmed };
+        const callMsg: Message = {
+          id: uuidv4(),
+          role: "assistant",
+          content: "Sure! You can reach Harsh's AI voice agent directly:",
+          showCallCard: true,
+        };
+        setMessages((prev) => [...prev, userMsg, callMsg]);
         return;
       }
 

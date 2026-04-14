@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import VoiceButton, { PHONE_NUMBER } from "./VoiceButton";
 
 export interface Source {
   source_type: string;
@@ -30,6 +31,7 @@ export interface Message {
   onDaySelect?: (group: DayGroup) => void;
   slotOptions?: SlotOption[];
   onSlotSelect?: (isoTime: string) => void;
+  showCallCard?: boolean;
 }
 
 const SOURCE_COLOURS: Record<string, string> = {
@@ -131,6 +133,27 @@ export default function MessageBubble({ message }: { message: Message }) {
                 {slot.label}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Call card */}
+        {!isUser && message.showCallCard && (
+          <div className="mt-2 ml-1 w-72 rounded-2xl border border-slate-700 bg-slate-800/80 p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 leading-tight">Harsh's AI Voice Line</p>
+                <p className="text-base font-semibold text-white tracking-wide">{PHONE_NUMBER}</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400">
+              Dial the number above from your phone, or start a free browser call right now:
+            </p>
+            <VoiceButton compact />
           </div>
         )}
       </div>
